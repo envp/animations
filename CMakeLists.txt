@@ -13,3 +13,4 @@ include(ColorDiagnostics)
 
 add_subdirectory(vendor/SFML)
 add_subdirectory(src/Starfield)
+add_subdirectory(src/DVDBounce)
