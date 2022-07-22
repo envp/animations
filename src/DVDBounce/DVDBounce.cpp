@@ -37,7 +37,6 @@ int main() {
     Window.clear(sf::Color::White);
     const auto &TopLeft = DVDSprite.getPosition();
 
-    // The rectangle is out if any of its 4
     if (TopLeft.x < 0 || TopLeft.x + static_cast<float>(DIMENSIONS.x) >=
                              static_cast<float>(SCREEN_SIZE.x)) {
       Velocity.x *= -1;
