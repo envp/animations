@@ -8,7 +8,7 @@
 #include "Assets.h"
 
 int main() {
-  const sf::Vector2u SCREEN_SIZE{800, 600};
+  constexpr static sf::Vector2u SCREEN_SIZE{800, 600};
   sf::RenderWindow Window(sf::VideoMode(SCREEN_SIZE), "DVD");
   Window.setFramerateLimit(60);
 
@@ -31,17 +31,21 @@ int main() {
     while (Window.pollEvent(Event)) {
       if (Event.type == sf::Event::Closed) {
         Window.close();
+      } else if (Event.type == sf::Event::Resized) {
+        Window.setSize(SCREEN_SIZE);
       }
     }
 
     Window.clear(sf::Color::White);
     const auto &TopLeft = DVDSprite.getPosition();
 
+    // Invert X-velocity if it touches the vertical bounds anywhere
     if (TopLeft.x < 0 || TopLeft.x + static_cast<float>(DIMENSIONS.x) >=
                              static_cast<float>(SCREEN_SIZE.x)) {
       Velocity.x *= -1;
     }
 
+    // Invert Y-velocity if it touches the horizontal bounds anywhere
     if (TopLeft.y < 0 || TopLeft.y + static_cast<float>(DIMENSIONS.y) >=
                              static_cast<float>(SCREEN_SIZE.y)) {
       Velocity.y *= -1;
