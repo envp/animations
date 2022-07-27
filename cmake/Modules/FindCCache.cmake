@@ -1,4 +1,4 @@
-project(CCache LANGUAGES C CXX)
+# Find the ccache executable and use that as the compiler launcher
 
 if(USE_CCACHE)
   message(STATUS "Detecting ccache location")
