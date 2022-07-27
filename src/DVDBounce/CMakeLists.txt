@@ -3,16 +3,13 @@ add_executable(dvdbounce DVDBounce.cpp)
 target_link_libraries(dvdbounce sfml-graphics)
 target_include_directories(dvdbounce PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
-cmake_path(SET DVDBOUNCE_ASSET_ROOT "${CMAKE_CURRENT_BINARY_DIR}/assets")
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/Assets.h.in" "${CMAKE_CURRENT_BINARY_DIR}/Assets.h" @ONLY)
+find_package(ConfigureDirectory)
 
-add_custom_target(
-  copy-assets
-  COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "${CMAKE_CURRENT_BINARY_DIR}/assets"
-  COMMENT "Copying assets..."
+target_configure_asset_dir(
+  dvdbounce
+  ASSETS_RELPATH "./assets"
+  DEFINE_VAR DVDBOUNCE_ASSET_ROOT
 )
-
-add_dependencies(dvdbounce copy-assets)
 
 add_custom_target(
   run-dvdbounce
