@@ -16,7 +16,7 @@
 static constexpr auto WINDOW_WIDTH = 800;
 static constexpr auto WINDOW_HEIGHT = 600;
 
-constexpr size_t NUM_STARS = 1024;
+constexpr size_t NUM_STARS = 512;
 
 // Position and Velocity for a single star
 struct PhaseCoordinate {
