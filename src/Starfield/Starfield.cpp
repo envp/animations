@@ -11,7 +11,6 @@
 #include <functional>
 #include <memory>
 #include <random>
-#include <utility>
 
 static constexpr auto WINDOW_WIDTH = 800;
 static constexpr auto WINDOW_HEIGHT = 600;
@@ -32,12 +31,12 @@ private:
 
 public:
   WorldState(std::pair<float, float> XBounds, std::pair<float, float> YBounds)
-      : XDist(new FloatDist(XBounds.first, XBounds.second)),
-        YDist(new FloatDist(YBounds.first, YBounds.second)) {}
+      : XDist(XBounds.first, XBounds.second),
+        YDist(YBounds.first, YBounds.second) {}
 
   std::pair<float, float> getRandomXY() {
-    float X = (*XDist)(Engine);
-    float Y = (*YDist)(Engine);
+    float X = XDist(Engine);
+    float Y = YDist(Engine);
     return {X, Y};
   }
 
@@ -60,8 +59,8 @@ public:
 
 private:
   std::default_random_engine Engine;
-  std::unique_ptr<FloatDist> XDist;
-  std::unique_ptr<FloatDist> YDist;
+  FloatDist XDist;
+  FloatDist YDist;
 };
 
 int main() {
