@@ -9,19 +9,18 @@
 #include <cstddef>
 #include <cstdio>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <random>
 
 static constexpr auto WINDOW_WIDTH = 800;
 static constexpr auto WINDOW_HEIGHT = 600;
 
-constexpr size_t NUM_STARS = 512;
+static constexpr float HALF_WIDTH = 0.5 * static_cast<float>(WINDOW_WIDTH);
+static constexpr float HALF_HEIGHT = 0.5 * static_cast<float>(WINDOW_HEIGHT);
 
-// Position and Velocity for a single star
-struct PhaseCoordinate {
-  sf::Vector2f Position;
-  sf::Vector2f Velocity;
-};
+constexpr size_t NUM_STARS = 512;
+constexpr unsigned FRAME_RATE = 60;
 
 class WorldState {
 private:
@@ -34,10 +33,15 @@ public:
       : XDist(XBounds.first, XBounds.second),
         YDist(YBounds.first, YBounds.second) {}
 
-  std::pair<float, float> getRandomXY() {
+  sf::Vector2f getRandom2D() {
     float X = XDist(Engine);
     float Y = YDist(Engine);
     return {X, Y};
+  }
+
+  float getRandomDepthRatio() {
+    static FloatDist Dist(1, 3);
+    return Dist(Engine);
   }
 
   sf::Color getRandomColor() {
@@ -57,46 +61,50 @@ public:
     return ALLOWED_STAR_COLORS[ColorDist(Engine)];
   }
 
+  void reset(std::pair<float, float> XBounds, std::pair<float, float> YBounds) {
+    XDist = FloatDist(XBounds.first, XBounds.second);
+    YDist = FloatDist(YBounds.first, YBounds.second);
+  }
+
 private:
-  std::default_random_engine Engine;
+  std::ranlux24 Engine;
   FloatDist XDist;
   FloatDist YDist;
 };
 
-int main() {
-  /// Create all the entities that will be in the scene
-  sf::Vector2u ScreenSize{WINDOW_WIDTH, WINDOW_HEIGHT};
-  sf::RenderWindow Window(sf::VideoMode(ScreenSize), "starfield");
-  Window.setFramerateLimit(60);
-
-  // Tiny factor which we scale with by repeated multiplication.
-  // Because it is so small, the scaling *looks* approximately linear over the
-  // course of a animation, speeding up towards the end.
-  constexpr float SCALE_FACTOR = 1.01;
-  WorldState State({0, static_cast<float>(WINDOW_WIDTH) - 1},
-                   {0, static_cast<float>(WINDOW_HEIGHT) - 1});
-
+static sf::CircleShape getDefaultStarShape() {
   sf::CircleShape DefaultStar(/* radius = */ 1.0f);
   DefaultStar.setFillColor(sf::Color::White);
   DefaultStar.setOutlineThickness(0.5f);
-  sf::CircleShape StarShapes[NUM_STARS];
-  std::fill_n(std::begin(StarShapes), NUM_STARS, DefaultStar);
-  float StarScale[NUM_STARS];
-  std::fill_n(std::begin(StarScale), NUM_STARS, 1.0f);
+  return DefaultStar;
+}
 
-  for (auto &Star : StarShapes) {
-    Star.setOutlineColor(State.getRandomColor());
+int main() {
+  /// Create all the entities that will be in the scene
+  sf::RenderWindow Window(sf::VideoMode({WINDOW_WIDTH, WINDOW_HEIGHT}),
+                          "starfield");
+  Window.setFramerateLimit(FRAME_RATE);
+
+  WorldState State({-1.0 * HALF_WIDTH * 3, 1.0 * HALF_WIDTH * 3},
+                   {-1.0 * HALF_HEIGHT * 3, 1.0 * HALF_HEIGHT * 3});
+
+  sf::Color OutlineColors[NUM_STARS];
+  for (auto &Color : OutlineColors) {
+    Color = State.getRandomColor();
   }
-  PhaseCoordinate Coordinates[NUM_STARS];
 
-  sf::Vector2f Origin = Window.getView().getCenter();
-  for (auto &Coordinate : Coordinates) {
-    const auto &P = State.getRandomXY();
-    sf::Vector2f Position(P.first, P.second);
-    sf::Vector2f Velocity = (Position - Origin).normalized().cwiseMul({4, 4});
-    Coordinate = {.Position = Position, .Velocity = Velocity};
+  float DepthRatio[NUM_STARS];
+  for (auto &R : DepthRatio) {
+    R = State.getRandomDepthRatio();
   }
 
+  sf::Vector2f WorldCoordinates[NUM_STARS];
+  sf::Vector2f ScreenPositions[NUM_STARS];
+  for (auto &SP : WorldCoordinates) {
+    SP = State.getRandom2D();
+  }
+
+  float Rate = 0.5;
   bool Paused = false;
 
   while (Window.isOpen()) {
@@ -108,6 +116,11 @@ int main() {
         Paused = true;
       } else if (Event.type == sf::Event::MouseButtonReleased) {
         Paused = false;
+      } else if (Event.type == sf::Event::MouseWheelScrolled) {
+        float Scroll = Event.mouseWheelScroll.delta;
+        Rate -= Scroll / 10.0f;
+        Rate = std::max(0.0f, Rate);
+        Rate = std::min(5.0f, Rate);
       }
     }
 
@@ -117,34 +130,30 @@ int main() {
 
     // BEGIN FRAME
     Window.clear();
-    const auto &CurrentView = Window.getView();
-    const auto &Viewport = Window.getViewport(CurrentView);
-    Origin = CurrentView.getCenter();
+    auto View = Window.getView();
+    auto Viewport = Window.getViewport(View);
 
     for (size_t Idx = 0; Idx != NUM_STARS; ++Idx) {
-      auto &Star = StarShapes[Idx];
-      auto &Coord = Coordinates[Idx];
-      Coord.Position += Coord.Velocity;
-      // Scaling the velocity with the frame creates a faux-parallax effect
-      // because "neighbouring" stars cross each other
-      Coord.Velocity *= SCALE_FACTOR;
-      StarScale[Idx] *= SCALE_FACTOR;
-      auto ScreenPosition = Window.mapCoordsToPixel(Coord.Position);
-
-      if (Viewport.contains(ScreenPosition)) {
-        Star.setPosition(Coord.Position);
-        Star.setScale({StarScale[Idx], StarScale[Idx]});
-        Window.draw(Star);
-      } else {
-        auto NextPos = State.getRandomXY();
-        auto NextColor = State.getRandomColor();
-        Star.setOutlineColor(NextColor);
-        Coord.Position.x = NextPos.first;
-        Coord.Position.y = NextPos.second;
-        Coord.Velocity =
-            (Coord.Position - Origin).normalized().cwiseMul({2, 2});
-        StarScale[Idx] = 1.0;
+      sf::Vector2f WorldCoordinate = WorldCoordinates[Idx];
+      DepthRatio[Idx] -= Rate / FRAME_RATE;
+      ScreenPositions[Idx] = WorldCoordinate / DepthRatio[Idx] +
+                             sf::Vector2f(HALF_WIDTH, HALF_HEIGHT);
+      if (!Viewport.contains(sf::Vector2i{ScreenPositions[Idx]})) {
+        DepthRatio[Idx] = State.getRandomDepthRatio();
+        WorldCoordinates[Idx] = State.getRandom2D();
+        OutlineColors[Idx] = State.getRandomColor();
       }
+    }
+    auto StarShape = getDefaultStarShape();
+    for (size_t Idx = 0; Idx != NUM_STARS; ++Idx) {
+      float Scale = DepthRatio[Idx];
+      if (Scale < 0.5) {
+        Scale = 0.5;
+      }
+      StarShape.setPosition(ScreenPositions[Idx]);
+      StarShape.setOutlineColor(OutlineColors[Idx]);
+      StarShape.setScale({1.0f / Scale, 1.0f / Scale});
+      Window.draw(StarShape);
     }
 
     // END FRAME
