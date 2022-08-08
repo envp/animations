@@ -61,11 +61,6 @@ public:
     return ALLOWED_STAR_COLORS[ColorDist(Engine)];
   }
 
-  void reset(std::pair<float, float> XBounds, std::pair<float, float> YBounds) {
-    XDist = FloatDist(XBounds.first, XBounds.second);
-    YDist = FloatDist(YBounds.first, YBounds.second);
-  }
-
 private:
   std::ranlux24 Engine;
   FloatDist XDist;
