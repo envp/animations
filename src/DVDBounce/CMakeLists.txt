@@ -3,12 +3,14 @@ add_executable(dvdbounce DVDBounce.cpp)
 target_link_libraries(dvdbounce sfml-graphics)
 target_include_directories(dvdbounce PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
-find_package(ConfigureDirectory)
+execute_process(COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets" "${CMAKE_CURRENT_BINARY_DIR}/assets")
 
-target_configure_asset_dir(
-  dvdbounce
-  ASSETS_RELPATH "./assets"
-  DEFINE_VAR DVDBOUNCE_ASSET_ROOT
+set(DVDBOUNCE_ASSET_ROOT "${CMAKE_CURRENT_BINARY_DIR}/assets")
+
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/Assets.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/Assets.h
+  @ONLY
 )
 
 add_custom_target(
