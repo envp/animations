@@ -1,158 +1,104 @@
-#include "SFML/Graphics.hpp"
-#include "SFML/Graphics/CircleShape.hpp"
-#include "SFML/Graphics/Color.hpp"
-#include "SFML/Graphics/Drawable.hpp"
-#include "SFML/System/Vector2.hpp"
-#include "SFML/Window/Event.hpp"
-#include "SFML/Window/VideoMode.hpp"
+#include <raylib.h>
+#include <raymath.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdio>
-#include <functional>
-#include <iostream>
-#include <memory>
+#include <array>
 #include <random>
+#include <string>
+#include <vector>
 
-static constexpr auto WINDOW_WIDTH = 800;
-static constexpr auto WINDOW_HEIGHT = 600;
-
-static constexpr float HALF_WIDTH = 0.5 * static_cast<float>(WINDOW_WIDTH);
-static constexpr float HALF_HEIGHT = 0.5 * static_cast<float>(WINDOW_HEIGHT);
-
-constexpr size_t NUM_STARS = 512;
-constexpr unsigned FRAME_RATE = 60;
-
-class WorldState {
-private:
-  using FloatDist = std::uniform_real_distribution<float>;
-  using UIntDist = std::uniform_int_distribution<size_t>;
-  WorldState() = delete;
-
-public:
-  WorldState(std::pair<float, float> XBounds, std::pair<float, float> YBounds)
-      : XDist(XBounds.first, XBounds.second),
-        YDist(YBounds.first, YBounds.second) {}
-
-  sf::Vector2f getRandom2D() {
-    float X = XDist(Engine);
-    float Y = YDist(Engine);
-    return {X, Y};
-  }
-
-  float getRandomDepthRatio() {
-    static FloatDist Dist(1, 3);
-    return Dist(Engine);
-  }
-
-  sf::Color getRandomColor() {
-    // Some values are repeated to
-    constexpr sf::Color ALLOWED_STAR_COLORS[] = {
-        // Reddish
-        sf::Color(0xCF, 0x7F, 0x40),
-        // Yellow
-        sf::Color(0xF8, 0xEE, 0xA5),
-        // Powder Blue
-        sf::Color(0xB0, 0xE0, 0xE6),
-        // Orange-ish
-        sf::Color(0xFF, 0x95, 0x00),
-        sf::Color::White,
-    };
-    static UIntDist ColorDist{0, std::size(ALLOWED_STAR_COLORS)};
-    return ALLOWED_STAR_COLORS[ColorDist(Engine)];
-  }
-
-private:
-  std::ranlux24 Engine;
-  FloatDist XDist;
-  FloatDist YDist;
+struct Star {
+  Vector2 m_center;
+  Color m_color;
+  float m_inverse_scale;
 };
 
-static sf::CircleShape getDefaultStarShape() {
-  sf::CircleShape DefaultStar(/* radius = */ 1.0f);
-  DefaultStar.setFillColor(sf::Color::White);
-  DefaultStar.setOutlineThickness(0.5f);
-  return DefaultStar;
+template <typename Generator>
+Vector2 get_random_position(const Rectangle &region, Generator &gen) {
+  static std::uniform_real_distribution<float> x_rng(-0.5f * region.width,
+                                                     0.5f * region.width);
+  static std::uniform_real_distribution<float> y_rng(-0.5f * region.height,
+                                                     0.5f * region.height);
+  return {x_rng(gen), y_rng(gen)};
+}
+
+template <typename Generator> Color get_random_color(Generator &gen) {
+  // clang-format off
+  constexpr Color ALL_COLORS[] = {
+      RED,
+      ORANGE,
+      YELLOW,
+      GREEN,
+      SKYBLUE,
+      MAGENTA,
+      VIOLET,
+      BEIGE
+  };
+  // clang-format on
+
+  constexpr size_t NUM_COLORS = sizeof(ALL_COLORS) / sizeof(ALL_COLORS[0]);
+  return ALL_COLORS[GetRandomValue(0, NUM_COLORS - 1)];
+}
+
+bool is_visible(const Rectangle &screen, const Vector2 &point) {
+  return point.x > 0 && point.x < screen.width && point.y > 0 &&
+         point.y < screen.height;
+}
+
+bool draw(const Star &star, const Rectangle &screen) {
+  float radius = std::min(3.0f, 1.0f / star.m_inverse_scale);
+  Vector2 offset = {screen.width / 2, screen.height / 2};
+  Vector2 scaled_position =
+      Vector2Scale(star.m_center, 1.0f / star.m_inverse_scale);
+  Vector2 screen_position = Vector2Add(scaled_position, offset);
+  bool visible = is_visible(screen, screen_position);
+  if (visible) {
+    DrawCircleV(screen_position, radius, star.m_color);
+    DrawCircleV(screen_position, 0.75f * radius, WHITE);
+  }
+  return visible;
+}
+
+template <typename Generator>
+void initialize_star(const Rectangle &screen, Generator &generator,
+                     Star &star) {
+  static std::uniform_real_distribution<float> inverse_scale_rng(1.0f / 3, 1.f);
+  star.m_center = get_random_position(screen, generator);
+  star.m_color = get_random_color(generator);
+  star.m_inverse_scale = inverse_scale_rng(generator);
 }
 
 int main() {
-  /// Create all the entities that will be in the scene
-  sf::RenderWindow Window(sf::VideoMode({WINDOW_WIDTH, WINDOW_HEIGHT}),
-                          "starfield");
-  Window.setFramerateLimit(FRAME_RATE);
+  std::ranlux48_base generator;
+  Rectangle screen{0, 0, 800, 600};
+  InitWindow(static_cast<int>(screen.width), static_cast<int>(screen.height),
+             "starfield");
+  //SetTargetFPS(60);
+  std::array<Star, 1024> stars;
 
-  WorldState State({-1.0 * HALF_WIDTH * 3, 1.0 * HALF_WIDTH * 3},
-                   {-1.0 * HALF_HEIGHT * 3, 1.0 * HALF_HEIGHT * 3});
+  SetTraceLogLevel(LOG_INFO);
 
-  sf::Color OutlineColors[NUM_STARS];
-  for (auto &Color : OutlineColors) {
-    Color = State.getRandomColor();
+  for (auto &star : stars) {
+    initialize_star(screen, generator, star);
   }
+  float delta_inverse_scale = 1.0 / 300;
 
-  float DepthRatio[NUM_STARS];
-  for (auto &R : DepthRatio) {
-    R = State.getRandomDepthRatio();
-  }
-
-  sf::Vector2f WorldCoordinates[NUM_STARS];
-  sf::Vector2f ScreenPositions[NUM_STARS];
-  for (auto &SP : WorldCoordinates) {
-    SP = State.getRandom2D();
-  }
-
-  float Rate = 0.5;
-  bool Paused = false;
-
-  while (Window.isOpen()) {
-    sf::Event Event;
-    while (Window.pollEvent(Event)) {
-      if (Event.type == sf::Event::Closed) {
-        Window.close();
-      } else if (Event.type == sf::Event::MouseButtonPressed) {
-        Paused = true;
-      } else if (Event.type == sf::Event::MouseButtonReleased) {
-        Paused = false;
-      } else if (Event.type == sf::Event::MouseWheelScrolled) {
-        float Scroll = Event.mouseWheelScroll.delta;
-        Rate -= Scroll / 10.0f;
-        Rate = std::max(0.0f, Rate);
-        Rate = std::min(5.0f, Rate);
+  while (!WindowShouldClose()) {
+    BeginDrawing();
+    {
+      ClearBackground(BLACK);
+      for (auto &star : stars) {
+        bool drawn = draw(star, screen);
+        if (!drawn) {
+          initialize_star(screen, generator, star);
+        } else {
+          star.m_inverse_scale -= delta_inverse_scale;
+        }
       }
     }
-
-    if (Paused) {
-      continue;
-    }
-
-    // BEGIN FRAME
-    Window.clear();
-    auto View = Window.getView();
-    auto Viewport = Window.getViewport(View);
-
-    for (size_t Idx = 0; Idx != NUM_STARS; ++Idx) {
-      sf::Vector2f WorldCoordinate = WorldCoordinates[Idx];
-      DepthRatio[Idx] -= Rate / FRAME_RATE;
-      ScreenPositions[Idx] = WorldCoordinate / DepthRatio[Idx] +
-                             sf::Vector2f(HALF_WIDTH, HALF_HEIGHT);
-      if (!Viewport.contains(sf::Vector2i{ScreenPositions[Idx]})) {
-        DepthRatio[Idx] = State.getRandomDepthRatio();
-        WorldCoordinates[Idx] = State.getRandom2D();
-        OutlineColors[Idx] = State.getRandomColor();
-      }
-    }
-    auto StarShape = getDefaultStarShape();
-    for (size_t Idx = 0; Idx != NUM_STARS; ++Idx) {
-      float Scale = DepthRatio[Idx];
-      if (Scale < 0.5) {
-        Scale = 0.5;
-      }
-      StarShape.setPosition(ScreenPositions[Idx]);
-      StarShape.setOutlineColor(OutlineColors[Idx]);
-      StarShape.setScale({1.0f / Scale, 1.0f / Scale});
-      Window.draw(StarShape);
-    }
-
-    // END FRAME
-    Window.display();
+    DrawFPS(720, 10);
+    EndDrawing();
   }
+  CloseWindow();
   return 0;
 }

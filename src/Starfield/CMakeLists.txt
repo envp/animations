@@ -1,6 +1,6 @@
 add_executable(starfield Starfield.cpp)
 
-target_link_libraries(starfield sfml-graphics)
+target_link_libraries(starfield raylib)
 
 add_custom_target(
   run-starfield
