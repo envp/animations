@@ -1,93 +1,112 @@
-#include "SFML/Graphics.hpp"
-#include "SFML/Graphics/Color.hpp"
-#include "SFML/Graphics/RectangleShape.hpp"
-#include "SFML/Graphics/Sprite.hpp"
-#include "SFML/Graphics/Texture.hpp"
-#include "SFML/Window/VideoMode.hpp"
-#include <filesystem>
-#include <iterator>
-#include <random>
-
 #include "Assets.h"
-
-constexpr sf::Color ORANGE = sf::Color(/* red   = */ 0xff,
-                                       /* green = */ 0x7f,
-                                       /* blue  = */ 0x00);
+#include "raylib.h"
+#include "raymath.h"
+#include <array>
+#include <cassert>
+#include <filesystem>
 
 // clang-format off
-constexpr sf::Color ALL_COLORS[] = {
-    sf::Color::Red,
+constexpr Color ALL_COLORS[] = {
+    RED,
     ORANGE,
-    sf::Color::Yellow,
-    sf::Color::Green,
-    sf::Color::Blue,
-    sf::Color::Cyan,
-    sf::Color::Magenta,
-    sf::Color::White
+    YELLOW,
+    GREEN,
+    BLUE,
+    MAGENTA,
+    VIOLET,
+    WHITE
 };
 // clang-format on
 
-constexpr size_t NUM_COLORS = std::size(ALL_COLORS);
+constexpr size_t NUM_COLORS = sizeof(ALL_COLORS) / sizeof(ALL_COLORS[0]);
+
+static Color pick_random_color() {
+  return ALL_COLORS[GetRandomValue(0, NUM_COLORS - 1)];
+}
+
+class Entity {
+public:
+  explicit Entity(const Rectangle &region)
+      : m_top_left({region.x, region.y}), m_width(region.width),
+        m_height(region.height) {}
+
+  Vector2 &velocity() { return m_velocity; }
+
+  const Vector2 &position() const { return m_top_left; }
+
+  bool is_overlapping_x(const Rectangle &bounding_rect) const {
+    return m_top_left.x < bounding_rect.x ||
+           m_top_left.x + m_width >= bounding_rect.width;
+  }
+
+  bool is_overlapping_y(const Rectangle &bounding_rect) const {
+    return m_top_left.y < bounding_rect.y ||
+           m_top_left.y + m_height >= bounding_rect.height;
+  }
+
+  void tick() { m_top_left = Vector2Add(m_top_left, m_velocity); }
+
+private:
+  Vector2 m_top_left;
+  float m_width;
+  float m_height;
+  Vector2 m_velocity = {0.0, 0.0};
+};
 
 int main() {
-  std::default_random_engine Generator;
-  std::uniform_int_distribution<size_t> RandomIndex(0, NUM_COLORS - 1);
+  Rectangle screen{0, 0, 800, 600};
+  InitWindow(static_cast<int>(screen.width), static_cast<int>(screen.height),
+             "DVD");
+  SetTargetFPS(60);
 
-  constexpr static sf::Vector2u SCREEN_SIZE{800, 600};
-  sf::RenderWindow Window(sf::VideoMode(SCREEN_SIZE), "DVD");
-  Window.setFramerateLimit(60);
+  const std::filesystem::path ASSET_ROOT(DVDBOUNCE_ASSET_ROOT);
+  auto asset_path = ASSET_ROOT / "dvd-logo-texture.png";
+  // Check if texture loaded
+  const Texture2D DVD_LOGO = LoadTexture(asset_path.c_str());
 
-  std::filesystem::path AssetRoot(DVDBOUNCE_ASSET_ROOT);
-
-  sf::Texture DVDLogo;
-  if (!DVDLogo.loadFromFile(AssetRoot / "dvd-logo-texture.png")) {
-    Window.close();
+  if (DVD_LOGO.id <= 0) {
     return -1;
   }
 
-  sf::Sprite DVDSprite;
-  DVDSprite.setTexture(DVDLogo);
-  DVDSprite.setColor(sf::Color(0, 255, 0));
-  const auto DIMENSIONS = DVDLogo.getSize();
-  sf::Vector2f Velocity{2, 2};
+  const auto TEXTURE_WIDTH = DVD_LOGO.width;
+  const auto TEXTURE_HEIGHT = DVD_LOGO.height;
+  const Vector2 &top_left = {
+      static_cast<float>(GetRandomValue(0, static_cast<int>(screen.width) -
+                                               TEXTURE_WIDTH - 1)),
+      static_cast<float>(GetRandomValue(0, static_cast<int>(screen.height) -
+                                               TEXTURE_HEIGHT - 1))};
+  Entity logo_entity(/* region = */ {top_left.x, top_left.y,
+                                     static_cast<float>(TEXTURE_WIDTH),
+                                     static_cast<float>(TEXTURE_HEIGHT)});
+  logo_entity.velocity() = {2, 2};
+  Color current_color = ALL_COLORS[0];
 
-  while (Window.isOpen()) {
-    sf::Event Event;
-    while (Window.pollEvent(Event)) {
-      if (Event.type == sf::Event::Closed) {
-        Window.close();
-      } else if (Event.type == sf::Event::Resized) {
-        Window.setSize(SCREEN_SIZE);
+  while (!WindowShouldClose()) {
+    if (IsWindowResized()) {
+      screen.width = static_cast<float>(GetScreenWidth());
+      screen.height = static_cast<float>(GetScreenHeight());
+    }
+    BeginDrawing();
+    {
+      ClearBackground(BLACK);
+      DrawTextureV(DVD_LOGO, logo_entity.position(), current_color);
+      bool bounced = false;
+      // Invert X-velocity if it touches the vertical bounds anywhere
+      if (logo_entity.is_overlapping_x(screen)) {
+        logo_entity.velocity().x *= -1;
+        bounced = true;
       }
+      // Invert Y-velocity if it touches the horizontal bounds anywhere
+      if (logo_entity.is_overlapping_y(screen)) {
+        logo_entity.velocity().y *= -1;
+        bounced = true;
+      }
+      if (bounced) {
+        current_color = pick_random_color();
+      }
+      logo_entity.tick();
     }
-
-    Window.clear();
-    const auto &TopLeft = DVDSprite.getPosition();
-    bool Bounced = false;
-    // Invert X-velocity if it touches the vertical bounds anywhere
-    if (TopLeft.x < 0 || TopLeft.x + static_cast<float>(DIMENSIONS.x) >=
-                             static_cast<float>(SCREEN_SIZE.x)) {
-      Velocity.x *= -1;
-      Bounced = true;
-    }
-
-    // Invert Y-velocity if it touches the horizontal bounds anywhere
-    if (TopLeft.y < 0 || TopLeft.y + static_cast<float>(DIMENSIONS.y) >=
-                             static_cast<float>(SCREEN_SIZE.y)) {
-      Velocity.y *= -1;
-      Bounced = true;
-    }
-
-    if (Bounced) {
-      size_t Index = RandomIndex(Generator);
-      assert(Index < NUM_COLORS && "Index out of bounds!");
-      DVDSprite.setColor(ALL_COLORS[1]);
-    }
-
-    DVDSprite.setPosition(TopLeft + Velocity);
-
-    Window.draw(DVDSprite);
-
-    Window.display();
+    EndDrawing();
   }
+  CloseWindow();
 }
