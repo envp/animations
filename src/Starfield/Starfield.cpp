@@ -73,7 +73,7 @@ int main() {
   Rectangle screen{0, 0, 800, 600};
   InitWindow(static_cast<int>(screen.width), static_cast<int>(screen.height),
              "starfield");
-  //SetTargetFPS(60);
+  SetTargetFPS(60);
   std::array<Star, 1024> stars;
 
   SetTraceLogLevel(LOG_INFO);
