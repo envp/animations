@@ -96,7 +96,7 @@ int main() {
         }
       }
     }
-    DrawFPS(720, 10);
+    DrawFPS(10, 10);
     EndDrawing();
   }
   CloseWindow();
