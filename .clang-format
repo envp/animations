@@ -1,0 +1,2 @@
+BasedOnStyle: LLVM
+Cpp11BracedListStyle: false
