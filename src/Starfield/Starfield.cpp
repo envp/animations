@@ -46,15 +46,20 @@ bool is_visible(const Rectangle &screen, const Vector2 &point) {
 }
 
 bool draw(const Star &star, const Rectangle &screen) {
-  float radius = std::min(3.0f, 1.0f / star.m_inverse_scale);
+  float radius = 1.5f * std::min(3.0f, 1.f / star.m_inverse_scale);
   Vector2 offset = {screen.width / 2, screen.height / 2};
   Vector2 scaled_position =
-      Vector2Scale(star.m_center, 1.0f / star.m_inverse_scale);
+      Vector2Scale(star.m_center, 1.f / star.m_inverse_scale);
   Vector2 screen_position = Vector2Add(scaled_position, offset);
   bool visible = is_visible(screen, screen_position);
   if (visible) {
-    DrawCircleV(screen_position, radius, star.m_color);
-    DrawCircleV(screen_position, 0.75f * radius, WHITE);
+    auto alpha = static_cast<unsigned char>(255 * (1.f - star.m_inverse_scale));
+    Color outline_color = star.m_color;
+    outline_color.a = 0.5f * alpha;
+    Color fill_color = WHITE;
+    fill_color.a = alpha;
+    DrawCircleV(screen_position, radius, outline_color);
+    DrawCircleV(screen_position, 0.75f * radius, fill_color);
   }
   return visible;
 }
@@ -70,7 +75,7 @@ void initialize_star(const Rectangle &screen, Generator &generator,
 
 int main() {
   std::ranlux48_base generator;
-  Rectangle screen{0, 0, 800, 600};
+  Rectangle screen{0, 0, 1200, 900};
   InitWindow(static_cast<int>(screen.width), static_cast<int>(screen.height),
              "starfield");
   SetTargetFPS(60);
