@@ -28,7 +28,7 @@ template <typename Generator> Color get_random_color(Generator &gen) {
       RED,
       ORANGE,
       YELLOW,
-      GREEN,
+      GOLD,
       SKYBLUE,
       MAGENTA,
       VIOLET,
