@@ -55,7 +55,7 @@ bool draw(const Star &star, const Rectangle &screen) {
   if (visible) {
     auto alpha = static_cast<unsigned char>(255 * (1.f - star.m_inverse_scale));
     Color outline_color = star.m_color;
-    outline_color.a = 0.5f * alpha;
+    outline_color.a = alpha/2;
     Color fill_color = WHITE;
     fill_color.a = alpha;
     DrawCircleV(screen_position, radius, outline_color);
