@@ -143,6 +143,23 @@ private:
   StorageType m_storage;
 };
 
+template <size_t WIDTH, size_t HEIGHT>
+Texture2D calc_mandelbrot_tex(const Rectangle &screen,
+                              FixedHeapArray2D<u16, WIDTH, HEIGHT> &iterations,
+                              FixedHeapArray2D<Color, WIDTH, HEIGHT> &colors) {
+  for (size_t row = 0; row < HEIGHT; ++row) {
+    for (size_t col = 0; col < WIDTH; ++col) {
+      auto coeff = pixel_to_plane_coord(row, col, screen);
+      auto value = calc_mandelbrot_level(coeff);
+      iterations[row][col] = value;
+      colors[row][col] = map_color(value);
+    }
+  }
+  Image img = { colors.data(), WIDTH, HEIGHT, 1,
+                PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+  return LoadTextureFromImage(img);
+}
+
 int main() {
   constexpr const size_t SCREEN_WIDTH = 900;
   constexpr const size_t SCREEN_HEIGHT = 900;
@@ -153,21 +170,11 @@ int main() {
   SetGesturesEnabled(GESTURE_DRAG);
   SetTargetFPS(60);
 
-  FixedHeapArray2D<u16, SCREEN_WIDTH, SCREEN_HEIGHT> iterations(0);
-  FixedHeapArray2D<Color, SCREEN_WIDTH, SCREEN_HEIGHT> pixel_buf(BLACK);
+  FixedHeapArray2D<u16, SCREEN_WIDTH, SCREEN_HEIGHT> iteration_buf(0);
+  FixedHeapArray2D<Color, SCREEN_WIDTH, SCREEN_HEIGHT> pixel_color_buf(BLACK);
 
-  for (size_t row = 0; row < SCREEN_HEIGHT; ++row) {
-    for (size_t col = 0; col < SCREEN_WIDTH; ++col) {
-      auto coeff = pixel_to_plane_coord(row, col, SCREEN);
-      auto value = calc_mandelbrot_level(coeff);
-      iterations[row][col] = value;
-      pixel_buf[row][col] = map_color(value);
-    }
-  }
-
-  Image img = { pixel_buf.data(), SCREEN_WIDTH, SCREEN_HEIGHT, 1,
-                PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
-  Texture2D texture = LoadTextureFromImage(img);
+  Texture2D texture = calc_mandelbrot_tex<SCREEN_WIDTH, SCREEN_HEIGHT>(
+      SCREEN, iteration_buf, pixel_color_buf);
   std::optional<DragRegion> drag_region;
   std::optional<DragRegion> zoom_region;
   bool show_debug_info = false;
@@ -214,7 +221,7 @@ int main() {
         } else {
           row -= font_size;
         }
-        auto value = iterations[row][col];
+        auto value = iteration_buf[row][col];
         DrawText(std::to_string(value).c_str(), col, row, font_size, RAYWHITE);
       }
     }

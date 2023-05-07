@@ -1,6 +1,6 @@
 add_executable(mandelbrot Mandelbrot.cpp)
 
-set(MANDELBROT_PALETTE_NUM_LEVELS 16)
+set(MANDELBROT_PALETTE_NUM_LEVELS 32)
 set(MANDELBROT_PALETTE_KIND gaussian)
 
 target_compile_definitions(
