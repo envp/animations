@@ -207,8 +207,8 @@ int main() {
         auto rect = zoom_region->as_rect();
       }
       if (show_debug_info) {
-        int row = GetMouseY();
-        int col = GetMouseX();
+        int row = std::min<int>(std::max(0, GetMouseY()), SCREEN_HEIGHT - 1);
+        int col = std::min<int>(std::max(0, GetMouseX()), SCREEN_WIDTH - 1);
         int font_size = 16;
         Vector2 dbginfo_topleft;
         // Try to draw above & to the right the mouse, but if that's not
@@ -216,11 +216,7 @@ int main() {
         dbginfo_topleft.y =
             static_cast<float>(row < font_size ? row : row - font_size);
         dbginfo_topleft.x =
-            static_cast<float>(col < font_size ? col : col - font_size * 2);
-        if (row < font_size) {
-        } else {
-          row -= font_size;
-        }
+            static_cast<float>(col < 2 * font_size ? col : col - 2 * font_size);
         auto value = iteration_buf[row][col];
         DrawText(std::to_string(value).c_str(), col, row, font_size, RAYWHITE);
       }
