@@ -32,3 +32,4 @@ endif()
 
 add_subdirectory(src/DVDBounce)
 add_subdirectory(src/Starfield)
+add_subdirectory(src/MandelbrotCpu)
