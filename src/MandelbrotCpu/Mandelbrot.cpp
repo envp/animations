@@ -20,7 +20,6 @@
 #error "Missing definition for MANDELBROT_PALETTE_NUM_LEVELS."
 #endif
 
-
 using u16 = std::uint16_t;
 constexpr const u16 N_LEVELS = MANDELBROT_PALETTE_NUM_LEVELS;
 
@@ -170,6 +169,7 @@ int main() {
                 PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
   Texture2D texture = LoadTextureFromImage(img);
   std::optional<DragRegion> drag_region;
+  std::optional<DragRegion> zoom_region;
   bool show_debug_info = false;
   while (!WindowShouldClose()) {
     // FIXME: There is a minimum delay / movement required to detect a drag
@@ -182,6 +182,7 @@ int main() {
         drag_region->set_end(GetMousePosition());
       }
     } else {
+      zoom_region = drag_region;
       drag_region.reset();
     }
     if (IsKeyPressed(KEY_D)) {
@@ -194,6 +195,9 @@ int main() {
       DrawLine(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, RED);
       if (drag_region) {
         DrawRectangleLinesEx(drag_region->as_rect(), 0.5f, RAYWHITE);
+      }
+      if (zoom_region) {
+        auto rect = zoom_region->as_rect();
       }
       if (show_debug_info) {
         int row = GetMouseY();
